@@ -14,7 +14,7 @@
 
 GITEA_URL="http://gitea.micurs.com:3000"
 GITEA_TOKEN="${GITEA_TOKEN:-$(grep 'token:' ~/Library/Application\ Support/tea/config.yml 2>/dev/null | head -1 | awk '{print $2}')}"
-REPO="micurs/ts-geopro"
+REPO="micurs/type-gpu-mandelbrot"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "$GITEA_TOKEN" ]; then

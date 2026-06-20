@@ -44,13 +44,13 @@ purpose, when to use it.
 5. Add/update tests for every behavior change.
 6. Run `pnpm lint`, `pnpm build`, and `pnpm test` locally (the pre-push hook
    enforces this).
-7. Use `tea` CLI or `./scripts/gitea-helper.sh` to create/update issues and PRs
+7. Use `tea` CLI or `vp run gitea-helper --` to create/update issues and PRs
    against the Gitea instance (`tea login` or `GITEA_TOKEN` env var required);
    prefer `origin-gitea` for publishing project branches. Use
-   `./scripts/gitea-helper.sh pr comments <pr-number>` to read unresolved PR
-   comments, `./scripts/gitea-helper.sh pr comment <file> <line> < comment.md`
+   `vp run gitea-helper -- pr <id> comments` to read unresolved PR comments,
+   `vp run gitea-helper -- pr <id> comment <file> <line> < comment.md`
    to add source-line feedback, and
-   `./scripts/gitea-helper.sh pr reply <comment-id> < reply.md` to reply.
+   `vp run gitea-helper -- pr <id> reply <comment-id> < reply.md` to reply.
 8. When opening a PR, link the issue(s) being addressed and wait for approval;
    merges happen after CI (Verify Pull Request workflow) passes.
 

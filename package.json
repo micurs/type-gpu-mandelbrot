@@ -9,8 +9,14 @@
     "preview": "vp preview",
     "prepare": "vp config"
   },
+  "dependencies": {
+    "@voidzero-dev/vite-plus-darwin-arm64": "^0.2.1",
+    "typegpu": "^0.11.8"
+  },
   "devDependencies": {
+    "@webgpu/types": "^0.1.70",
     "typescript": "~6.0.2",
+    "unplugin-typegpu": "^0.11.5",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },

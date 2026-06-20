@@ -42,21 +42,27 @@ purpose, when to use it.
    scoped/atomic.
 4. Reference the issue ID in commit messages and PR descriptions.
 5. Add/update tests for every behavior change.
-6. Run `pnpm lint`, `pnpm build`, and `pnpm test` locally (the pre-push hook
-   enforces this).
-7. Use `tea` CLI or `vp run gitea-helper --` to create/update issues and PRs
-   against the Gitea instance (`tea login` or `GITEA_TOKEN` env var required);
-   prefer `origin-gitea` for publishing project branches. Use
-   `vp run gitea-helper -- pr <id> comments` to read unresolved PR comments,
-   `vp run gitea-helper -- pr <id> comment <file> <line> < comment.md`
-   to add source-line feedback, and
-   `vp run gitea-helper -- pr <id> reply <comment-id> < reply.md` to reply.
+6. Run `vp check` and `pnpm test` locally (the pre-push hook enforces this).
+7. Use `vp run gitea-helper --` to manage issues and PRs against the Gitea
+   instance (`tea login` or `GITEA_TOKEN` env var required); prefer
+   `origin-gitea` for publishing project branches:
+   - `vp run gitea-helper -- issues list`
+   - `vp run gitea-helper -- issues show <id>`
+   - `vp run gitea-helper -- issues create "<title>" "<body>"`
+   - `vp run gitea-helper -- issues comment <id> "<message>"`
+   - `vp run gitea-helper -- issues close <id>`
+   - `vp run gitea-helper -- issues reopen <id>`
+   - `vp run gitea-helper -- pr create "<title>" "<body>" <head> [base]`
+   - `vp run gitea-helper -- pr <id> comments`
+   - `vp run gitea-helper -- pr <id> comment <file> <line> < comment.md`
+   - `vp run gitea-helper -- pr <id> approve`
+   - `vp run gitea-helper -- pr <id> reply <comment-id> < reply.md`
 8. When opening a PR, link the issue(s) being addressed and wait for approval;
    merges happen after CI (Verify Pull Request workflow) passes.
 
 ## Scripts & Tooling
 
-Helper scripts and opencode tools (`.opencode/tools/`, `scripts/`) use **Deno** as the runtime. Run them with `deno run --allow-env --allow-net --allow-read --allow-run <file.ts>`.
+Helper scripts and opencode tools (`.opencode/tools/`, `scripts/`) use **Deno** as the runtime. Prefer `vp run <script> --` for scripts registered in `package.json` (e.g. `vp run gitea-helper --`). Run ad-hoc Deno scripts with `deno run --allow-env --allow-net --allow-read --allow-run <file.ts>`.
 
 ## Architecture & Coding Guidelines
 

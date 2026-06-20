@@ -1,14 +1,7 @@
-import tgpu, { d, type TgpuBindGroupLayout } from "typegpu";
+import tgpu, { d, std, type TgpuBindGroupLayout } from "typegpu";
 
 const WIDTH = 1000;
 const HEIGHT = 800;
-
-const ParamsType = d.struct({
-  centerX: d.f32,
-  centerY: d.f32,
-  scale: d.f32,
-  maxIterations: d.u32,
-});
 
 export type MandelbrotParams = {
   centerX: number;
@@ -24,55 +17,30 @@ export const DEFAULT_PARAMS: MandelbrotParams = {
   maxIterations: 256,
 };
 
-function createMandelbrotShader(layout: TgpuBindGroupLayout) {
-  const pBind = layout.$.params;
-  const oBind = layout.$.outputTex;
+function createRendererShader(layout: TgpuBindGroupLayout) {
+  return tgpu
+    .computeFn({
+      workgroupSize: [8, 8],
+      in: { id: d.builtin.globalInvocationId },
+    })(({ id }) => {
+      "use gpu";
 
-  return tgpu.computeFn({
-    workgroupSize: [8, 8],
-    in: { id: d.builtin.globalInvocationId },
-  })`
-      if (id.x >= ${WIDTH}u || id.y >= ${HEIGHT}u) {
+      if (id.x >= 1000 || id.y >= 800) {
         return;
       }
 
-      let cx = params.centerX + (f32(id.x) - f32(${WIDTH}u) / 2.0) * params.scale;
-      let cy = params.centerY + (f32(id.y) - f32(${HEIGHT}u) / 2.0) * params.scale;
-
-      var zx = 0.0;
-      var zy = 0.0;
-      var iter = 0u;
-
-      for (; iter < params.maxIterations; iter++) {
-        let x2 = zx * zx;
-        let y2 = zy * zy;
-        if (x2 + y2 > 4.0) {
-          break;
-        }
-        zy = 2.0 * zx * zy + cy;
-        zx = x2 - y2 + cx;
-      }
-
-      if (iter == params.maxIterations) {
-        textureStore(outputTex, vec2u(id.x, id.y), vec4f(0.0, 0.0, 0.0, 1.0));
-      } else {
-        let t = f32(iter) / f32(params.maxIterations);
-        let r = 1.0 - t;
-        let gVal = (t * 2.0) % 1.0;
-        let b = 0.5 + t * 0.5;
-        textureStore(outputTex, vec2u(id.x, id.y), vec4f(r, gVal, b, 1.0));
-      }
-    `.$uses({ params: pBind, outputTex: oBind });
+      // @ts-expect-error - resolved to WGSL texture handle inside 'use gpu'
+      std.textureStore(layout.$.outputTex, d.vec2u(id.x, id.y), d.vec4f(1.0, 0.0, 0.0, 1.0));
+    })
+    .$uses({ layout });
 }
 
 export async function initRenderer(canvas: HTMLCanvasElement): Promise<{
-  render: (params: MandelbrotParams) => Promise<void>;
+  render: () => Promise<void>;
   destroy: () => void;
 }> {
   if (!navigator.gpu) {
-    throw new Error(
-      "WebGPU is not supported in this browser. " + "Please use a WebGPU-compatible browser.",
-    );
+    throw new Error("WebGPU is not supported in this browser.");
   }
 
   const root = await tgpu.init();
@@ -92,13 +60,6 @@ export async function initRenderer(canvas: HTMLCanvasElement): Promise<{
     usage: GPUTextureUsage.COPY_DST,
   });
 
-  const paramsBuffer = root.createUniform(ParamsType, {
-    centerX: DEFAULT_PARAMS.centerX,
-    centerY: DEFAULT_PARAMS.centerY,
-    scale: DEFAULT_PARAMS.scale,
-    maxIterations: DEFAULT_PARAMS.maxIterations,
-  });
-
   const offscreenTexture = root
     .createTexture({
       size: [WIDTH, HEIGHT],
@@ -109,26 +70,17 @@ export async function initRenderer(canvas: HTMLCanvasElement): Promise<{
   const storageView = offscreenTexture.createView(d.textureStorage2d("rgba8unorm", "write-only"));
 
   const layout = tgpu.bindGroupLayout({
-    params: { uniform: ParamsType },
     outputTex: { storageTexture: d.textureStorage2d("rgba8unorm", "write-only") },
   });
 
   const bindGroup = root.createBindGroup(layout, {
-    params: paramsBuffer.buffer,
     outputTex: storageView,
   });
 
-  const computeShader = createMandelbrotShader(layout);
+  const computeShader = createRendererShader(layout);
   const computePipeline = root.createComputePipeline({ compute: computeShader });
 
-  async function render(params: MandelbrotParams) {
-    paramsBuffer.write({
-      centerX: params.centerX,
-      centerY: params.centerY,
-      scale: params.scale,
-      maxIterations: params.maxIterations,
-    });
-
+  async function render() {
     const commandEncoder = root.device.createCommandEncoder();
     const canvasTexture = ctx!.getCurrentTexture();
 

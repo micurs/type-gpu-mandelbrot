@@ -1,5 +1,5 @@
 import "./style.css";
-import { initRenderer, DEFAULT_PARAMS } from "./renderer.ts";
+import { initRenderer } from "./renderer.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -13,8 +13,8 @@ const canvas = document.querySelector<HTMLCanvasElement>("#mandelbrot")!;
 const errorDiv = document.querySelector<HTMLDivElement>("#error")!;
 
 void initRenderer(canvas).then(
-  ({ render, destroy: _destroy }) => {
-    void render(DEFAULT_PARAMS);
+  ({ render }) => {
+    void render();
   },
   (reason: unknown) => {
     const message = reason instanceof Error ? reason.message : String(reason);

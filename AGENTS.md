@@ -14,3 +14,63 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+## Skills
+
+They are located in the `.skills/` directory and designed to guide agents
+through specific workflows. Each skill has a `SKILL.md` that defines its
+purpose, when to use it.
+
+- `planning`: For drafting implementation plans based on Gitea tickets. Requires
+  a ticket reference and produces structured plans with rationale, steps,
+  version changes, and tests.
+
+- `code-review`: For reviewing PRs with a focus on code quality,
+  maintainability, and alignment with project conventions. Provides actionable
+  feedback and a summary of findings.
+
+## Contribution Workflow
+
+1. Open an issue describing the bugfix/feature before coding; track ongoing work
+   through the issue.
+2. For Plan Mode or pre-implementation planning, use the repo-local
+   `.skills/planning` skill. Plans must reference a Gitea ticket and include the
+   required ticket/branch, rationale, steps, version changes, and tests
+   sections.
+3. Branch off `main`, naming the branch after the issue with the
+   `<username>/<ticket-number>-<short-title>` convention, and keep commits
+   scoped/atomic.
+4. Reference the issue ID in commit messages and PR descriptions.
+5. Add/update tests for every behavior change.
+6. Run `vp check` and `pnpm test` locally (the pre-push hook enforces this).
+7. Use `vp run gitea-helper --` to manage issues and PRs against the Gitea
+   instance (`tea login` or `GITEA_TOKEN` env var required); prefer
+   `origin-gitea` for publishing project branches:
+   - `vp run gitea-helper -- issues list`
+   - `vp run gitea-helper -- issues show <id>`
+   - `vp run gitea-helper -- issues create "<title>" "<body>"`
+   - `vp run gitea-helper -- issues comment <id> "<message>"`
+   - `vp run gitea-helper -- issues close <id>`
+   - `vp run gitea-helper -- issues reopen <id>`
+   - `vp run gitea-helper -- pr create "<title>" "<body>" <head> [base]`
+   - `vp run gitea-helper -- pr <id> comments`
+   - `vp run gitea-helper -- pr <id> comment <file> <line> < comment.md`
+   - `vp run gitea-helper -- pr <id> approve`
+   - `vp run gitea-helper -- pr <id> reply <comment-id> < reply.md`
+8. When opening a PR, link the issue(s) being addressed and wait for approval;
+   merges happen after CI (Verify Pull Request workflow) passes.
+
+## Scripts & Tooling
+
+Helper scripts and opencode tools (`.opencode/tools/`, `scripts/`) use **Deno** as the runtime. Prefer `vp run <script> --` for scripts registered in `package.json` (e.g. `vp run gitea-helper --`). Run ad-hoc Deno scripts with `deno run --allow-env --allow-net --allow-read --allow-run <file.ts>`.
+
+## Architecture & Coding Guidelines
+
+- Favor functional, immutable data structures.
+- Avoid type casting and `any` types; prefer explicit types and interfaces.
+- Use descriptive variable and function names that convey intent.
+- Break down complex functions into smaller, reusable pieces.
+- Keep documentation synchronized: update `readme.md` (and package-specific
+  READMEs) alongside library changes when APIs shift.
+- Always use curly braces for control flow bodies (`if`, `else`, `for`, `while`,
+  `do`), even for single-line statements.

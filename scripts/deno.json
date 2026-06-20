@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "test": "deno test --allow-env --allow-net --allow-read --allow-run --no-check gitea-helper_test.ts"
+  }
+}

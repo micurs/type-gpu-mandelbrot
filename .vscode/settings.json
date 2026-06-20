@@ -18,5 +18,18 @@
   "editor.formatOnSaveMode": "file",
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "explicit"
+  },
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#073d9b",
+    "titleBar.activeBackground": "#073d9b",
+    "titleBar.activeForeground": "#FFF8F4",
+    "titleBar.inactiveBackground": "#073d9b",
+    "titleBar.inactiveForeground": "#FFF8F4",
+    "statusBar.background": "#073d9b",
+    "statusBar.foreground": "#FFF8F4",
+    "statusBar.debuggingBackground": "#073d9b",
+    "statusBar.debuggingForeground": "#FFF8F4",
+    "statusBar.noFolderBackground": "#073d9b",
+    "statusBar.noFolderForeground": "#FFF8F4"
   }
 }

@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
+import { assertEquals, assertStringIncludes, assert } from "jsr:@std/assert";
 
 const scriptPath = new URL("gitea-helper.ts", import.meta.url).pathname;
 
@@ -259,4 +259,112 @@ Deno.test("ignores -- separator in args (for vp run compat)", async () => {
   // Should not show usage; should attempt API call instead
   assertStringIncludes(err, "Gitea API error");
   assertEquals(code, 1);
+});
+
+Deno.test("paginatedRequest collects all pages", async () => {
+  let calls: string[] = [];
+  const server = Deno.serve({ port: 0 }, (req: Request) => {
+    const url = new URL(req.url);
+    const path = url.pathname;
+    const page = url.searchParams.get("page") ?? "1";
+    calls.push(`${path}?page=${page}`);
+
+    // issues/99/comments - return empty (no issue comments)
+    if (path.includes("/issues/99/comments")) {
+      return new Response(JSON.stringify([]));
+    }
+
+    // pulls/99/reviews - return 2 pages
+    if (path.includes("/pulls/99/reviews") && !path.includes("/comments")) {
+      if (page === "1") return new Response(JSON.stringify([{ id: 1 }]));
+      if (page === "2") return new Response(JSON.stringify([{ id: 2 }]));
+      return new Response(JSON.stringify([]));
+    }
+
+    // pulls/99/reviews/1/comments - return 2 pages
+    if (path.includes("/reviews/1/comments")) {
+      if (page === "1")
+        return new Response(
+          JSON.stringify([
+            { id: 10, body: "First", path: "a.ts", position: 1, pull_request_review_id: 1 },
+          ]),
+        );
+      if (page === "2")
+        return new Response(
+          JSON.stringify([
+            { id: 11, body: "Second", path: "b.ts", position: 2, pull_request_review_id: 1 },
+          ]),
+        );
+      return new Response(JSON.stringify([]));
+    }
+
+    // pulls/99/reviews/2/comments - return 1 page then empty
+    if (path.includes("/reviews/2/comments")) {
+      if (page === "1")
+        return new Response(
+          JSON.stringify([
+            { id: 12, body: "Third", path: "c.ts", position: 3, pull_request_review_id: 2 },
+          ]),
+        );
+      return new Response(JSON.stringify([]));
+    }
+
+    return new Response(JSON.stringify([]));
+  });
+  const { port } = server.addr as Deno.NetAddr;
+
+  const { stdout } = await runGiteaHelper(["pr", "99", "comments"], {
+    GITEA_URL: `http://127.0.0.1:${port}`,
+  });
+
+  server.shutdown();
+
+  // Verify issues/99/comments was paginated (page 1 only, then stops)
+  assert(
+    calls.some((c) => c.includes("/issues/99/comments?page=1")),
+    "issues comments page 1",
+  );
+
+  // Verify reviews pagination
+  assert(
+    calls.some((c) => c.includes("/pulls/99/reviews?page=1")),
+    "reviews page 1",
+  );
+  assert(
+    calls.some((c) => c.includes("/pulls/99/reviews?page=2")),
+    "reviews page 2",
+  );
+  assert(
+    calls.some((c) => c.includes("/pulls/99/reviews?page=3")),
+    "reviews page 3 (empty)",
+  );
+
+  // Verify review comments pagination for review 1 (2 pages + empty)
+  assert(
+    calls.some((c) => c.includes("/reviews/1/comments?page=1")),
+    "review 1 comments page 1",
+  );
+  assert(
+    calls.some((c) => c.includes("/reviews/1/comments?page=2")),
+    "review 1 comments page 2",
+  );
+  assert(
+    calls.some((c) => c.includes("/reviews/1/comments?page=3")),
+    "review 1 comments page 3 (empty)",
+  );
+
+  // Verify review comments pagination for review 2 (1 page + empty)
+  assert(
+    calls.some((c) => c.includes("/reviews/2/comments?page=1")),
+    "review 2 comments page 1",
+  );
+  assert(
+    calls.some((c) => c.includes("/reviews/2/comments?page=2")),
+    "review 2 comments page 2 (empty)",
+  );
+
+  // Output should list all 3 unresolved comments
+  assertStringIncludes(stdout, "First");
+  assertStringIncludes(stdout, "Second");
+  assertStringIncludes(stdout, "Third");
 });

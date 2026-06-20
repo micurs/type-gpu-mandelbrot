@@ -94,6 +94,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+async function paginatedRequest<T>(path: string, limit = 50): Promise<T[]> {
+  const results: T[] = [];
+  for (let page = 1; ; page++) {
+    const sep = path.includes("?") ? "&" : "?";
+    const batch = await request<T[]>(`${path}${sep}page=${page}&limit=${limit}`);
+    if (batch.length === 0) break;
+    results.push(...batch);
+  }
+  return results;
+}
+
 async function readStdinBody(): Promise<string> {
   const body = (await new Response(Deno.stdin.readable).text()).trim();
   if (!body) {
@@ -197,16 +208,13 @@ async function prCreate(args: string[]): Promise<void> {
 }
 
 async function listReviewComments(prNumber: string): Promise<GiteaReviewComment[]> {
-  const reviews: GiteaReview[] = [];
-  for (let page = 1; ; page++) {
-    const batch = await request<GiteaReview[]>(`pulls/${prNumber}/reviews?page=${page}&limit=50`);
-    if (batch.length === 0) break;
-    reviews.push(...batch);
-  }
+  const reviews = await paginatedRequest<GiteaReview>(`pulls/${prNumber}/reviews`);
   const results = await Promise.all(
     reviews
       .filter((r) => r.id)
-      .map((r) => request<GiteaReviewComment[]>(`pulls/${prNumber}/reviews/${r.id}/comments`)),
+      .map((r) =>
+        paginatedRequest<GiteaReviewComment>(`pulls/${prNumber}/reviews/${r.id}/comments`),
+      ),
   );
   return results.flat();
 }
@@ -218,7 +226,7 @@ async function prComments(args: string[]): Promise<void> {
     Deno.exit(1);
   }
   const comments: (GiteaComment | GiteaReviewComment)[] = [
-    ...(await request<GiteaComment[]>(`issues/${prNumber}/comments?limit=100`)),
+    ...(await paginatedRequest<GiteaComment>(`issues/${prNumber}/comments`)),
     ...(await listReviewComments(prNumber)),
   ];
   const unresolved = comments.filter((c) => {

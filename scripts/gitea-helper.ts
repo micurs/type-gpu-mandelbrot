@@ -197,15 +197,18 @@ async function prCreate(args: string[]): Promise<void> {
 }
 
 async function listReviewComments(prNumber: string): Promise<GiteaReviewComment[]> {
-  const reviews = await request<GiteaReview[]>(`pulls/${prNumber}/reviews`);
-  const comments: GiteaReviewComment[] = [];
-  for (const review of reviews) {
-    if (!review.id) continue;
-    comments.push(
-      ...(await request<GiteaReviewComment[]>(`pulls/${prNumber}/reviews/${review.id}/comments`)),
-    );
+  const reviews: GiteaReview[] = [];
+  for (let page = 1; ; page++) {
+    const batch = await request<GiteaReview[]>(`pulls/${prNumber}/reviews?page=${page}&limit=50`);
+    if (batch.length === 0) break;
+    reviews.push(...batch);
   }
-  return comments;
+  const results = await Promise.all(
+    reviews
+      .filter((r) => r.id)
+      .map((r) => request<GiteaReviewComment[]>(`pulls/${prNumber}/reviews/${r.id}/comments`)),
+  );
+  return results.flat();
 }
 
 async function prComments(args: string[]): Promise<void> {

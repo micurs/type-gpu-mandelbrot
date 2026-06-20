@@ -8,7 +8,9 @@
     "build": "tsc && vp build",
     "preview": "vp preview",
     "prepare": "vp config",
-    "gitea-helper": "deno run --allow-env --allow-net --allow-read scripts/gitea-helper.ts"
+    "gitea-helper": "deno run --allow-env --allow-net --allow-read scripts/gitea-helper.ts",
+    "test": "deno test --config scripts/deno.json --allow-env --allow-net --allow-read --allow-run --no-check scripts/gitea-helper_test.ts",
+    "test:deno": "deno test --config scripts/deno.json --allow-env --allow-net --allow-read --allow-run --no-check scripts/gitea-helper_test.ts"
   },
   "dependencies": {
     "@voidzero-dev/vite-plus-darwin-arm64": "^0.2.1",

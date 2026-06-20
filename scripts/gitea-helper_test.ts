@@ -137,18 +137,20 @@ Deno.test("issues show calls API with provided ID", async () => {
 
 Deno.test("pr comment uses explicit PR ID not branch", async () => {
   let requestedPrId = "";
+  let reviewPostBody = "";
   const server = Deno.serve({ port: 0 }, async (req: Request) => {
     const url = req.url;
-    if (url.includes("/pulls/99")) {
-      return new Response(JSON.stringify({ number: 99, head: { sha: "abc123" } }));
-    }
+    // Must check /reviews before /pulls to avoid catching GET /pulls/99
     if (url.includes("/pulls/99/reviews")) {
       if (req.method === "POST") {
+        reviewPostBody = await req.text();
         return new Response(JSON.stringify({ id: 1, html_url: "http://example.com" }));
       }
       return new Response(JSON.stringify([]));
     }
-    // Extract PR ID from URL
+    if (url.includes("/pulls/99")) {
+      return new Response(JSON.stringify({ number: 99, head: { sha: "abc123" } }));
+    }
     const pullsMatch = url.match(/\/pulls\/(\d+)/);
     if (pullsMatch) requestedPrId = pullsMatch[1];
     return new Response(JSON.stringify({}), { status: 404 });
@@ -188,6 +190,10 @@ Deno.test("pr comment uses explicit PR ID not branch", async () => {
   // Should NOT have tried to find PR by branch
   assertEquals(err, "");
   assertStringIncludes(out, "PR #99");
+  // Verify the review POST was made with correct payload
+  assertStringIncludes(reviewPostBody, "COMMENT");
+  assertStringIncludes(reviewPostBody, "src/file.ts");
+  assertStringIncludes(reviewPostBody, "Test comment");
 });
 
 Deno.test("pr approve targets explicit PR ID", async () => {

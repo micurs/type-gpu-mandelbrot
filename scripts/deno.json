@@ -1,7 +1,4 @@
 {
-  "imports": {
-    "@std/semver": "jsr:@std/semver@^1.0.3"
-  },
   "tasks": {
     "test": "deno test --allow-env --allow-net --allow-read --allow-run --no-check gitea-helper_test.ts"
   }

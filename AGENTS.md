@@ -54,6 +54,10 @@ purpose, when to use it.
 8. When opening a PR, link the issue(s) being addressed and wait for approval;
    merges happen after CI (Verify Pull Request workflow) passes.
 
+## Scripts & Tooling
+
+Helper scripts and opencode tools (`.opencode/tools/`, `scripts/`) use **Deno** as the runtime. Run them with `deno run --allow-env --allow-net --allow-read --allow-run <file.ts>`.
+
 ## Architecture & Coding Guidelines
 
 - Favor functional, immutable data structures.

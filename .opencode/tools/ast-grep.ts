@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { tool } from "@opencode-ai/plugin";
 
 export default tool({
@@ -32,16 +31,17 @@ export default tool({
       .describe("Show NUM lines of context around each match"),
   },
   async execute(args) {
-    const cmd = ["sg"];
-    if (args.pattern) cmd.push("-p", args.pattern);
-    if (args.kind) cmd.push("--kind", args.kind);
-    if (args.lang) cmd.push("-l", args.lang);
-    if (args.rewrite) cmd.push("-r", args.rewrite);
-    if (args.filesWithMatches) cmd.push("--files-with-matches");
-    if (args.json) cmd.push("--json");
-    if (args.context) cmd.push("-C", String(args.context));
-    if (args.paths && args.paths.length > 0) cmd.push(...args.paths);
-    const result = execSync(cmd.join(" "), { encoding: "utf-8" });
-    return result.trim();
+    const cmdArgs: string[] = [];
+    if (args.pattern) cmdArgs.push("-p", args.pattern);
+    if (args.kind) cmdArgs.push("--kind", args.kind);
+    if (args.lang) cmdArgs.push("-l", args.lang);
+    if (args.rewrite) cmdArgs.push("-r", args.rewrite);
+    if (args.filesWithMatches) cmdArgs.push("--files-with-matches");
+    if (args.json) cmdArgs.push("--json");
+    if (args.context) cmdArgs.push("-C", String(args.context));
+    if (args.paths && args.paths.length > 0) cmdArgs.push(...args.paths);
+    const command = new Deno.Command("sg", { args: cmdArgs });
+    const { stdout } = await command.output();
+    return new TextDecoder().decode(stdout).trim();
   },
 });

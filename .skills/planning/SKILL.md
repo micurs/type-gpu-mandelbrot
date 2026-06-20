@@ -13,7 +13,9 @@ Require a Gitea ticket before producing a plan. Accept a full issue URL or an is
 
 If the request does not identify a ticket, ask for the ticket and stop. Do not create a ticket-free plan.
 
-Use `./scripts/gitea-helper.sh` to interact with Gitea. Instructions are in `./scripts/gitea-helper.md`. To read PR feedback, run `./scripts/gitea-helper.sh pr comments <pr-number>`. To add PR feedback, use `./scripts/gitea-helper.sh pr comment <source-file> <line-number> < comment.md` or `./scripts/gitea-helper.sh pr reply <comment-id> < reply.md`.
+Use `vp run gitea-helper` to interact with Gitea. Instructions are in `./scripts/gitea-helper.md`.
+To read PR feedback, run `vp run gitea-helper -- pr <id> comments`.
+To add PR feedback, use `vp run gitea-helper pr <id> comment <source-file> <line-number> < comment.md`.
 
 Before drafting the plan:
 

@@ -109,11 +109,22 @@ code {
 }
 
 canvas#mandelbrot {
-  width: 1000px;
-  height: 800px;
+  width: 100%;
+  max-width: 1000px;
+  height: auto;
+  aspect-ratio: 1000 / 800;
   border: 1px solid var(--border);
   background: black;
   margin: 0 auto;
+}
+
+#error {
+  color: #f44336;
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 14px;
+  max-width: 600px;
+  margin: 16px auto;
 }
 
 #center {

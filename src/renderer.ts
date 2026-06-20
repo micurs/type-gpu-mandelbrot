@@ -1,6 +1,4 @@
 import tgpu, { d, type TgpuBindGroupLayout } from "typegpu";
-import { f32, vec2u, vec4f } from "typegpu/data";
-import { textureStore } from "typegpu/std";
 
 const WIDTH = 1000;
 const HEIGHT = 800;
@@ -27,32 +25,27 @@ export const DEFAULT_PARAMS: MandelbrotParams = {
 };
 
 function createMandelbrotShader(layout: TgpuBindGroupLayout) {
-  return tgpu
-    .computeFn({
-      workgroupSize: [8, 8],
-      in: { id: d.builtin.globalInvocationId },
-    })(({ id }) => {
-      "use gpu";
+  const pBind = layout.$.params;
+  const oBind = layout.$.outputTex;
 
-      if (id.x >= WIDTH || id.y >= HEIGHT) {
+  return tgpu.computeFn({
+    workgroupSize: [8, 8],
+    in: { id: d.builtin.globalInvocationId },
+  })`
+      if (id.x >= ${WIDTH}u || id.y >= ${HEIGHT}u) {
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const p: any = layout.$.params;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const o: any = layout.$.outputTex;
+      let cx = params.centerX + (f32(id.x) - f32(${WIDTH}u) / 2.0) * params.scale;
+      let cy = params.centerY + (f32(id.y) - f32(${HEIGHT}u) / 2.0) * params.scale;
 
-      const cx = p.centerX + (f32(id.x) - f32(WIDTH) / 2.0) * p.scale;
-      const cy = p.centerY + (f32(id.y) - f32(HEIGHT) / 2.0) * p.scale;
+      var zx = 0.0;
+      var zy = 0.0;
+      var iter = 0u;
 
-      let zx = 0.0;
-      let zy = 0.0;
-      let iter = 0;
-
-      for (; iter < p.maxIterations; iter++) {
-        const x2 = zx * zx;
-        const y2 = zy * zy;
+      for (; iter < params.maxIterations; iter++) {
+        let x2 = zx * zx;
+        let y2 = zy * zy;
         if (x2 + y2 > 4.0) {
           break;
         }
@@ -60,18 +53,16 @@ function createMandelbrotShader(layout: TgpuBindGroupLayout) {
         zx = x2 - y2 + cx;
       }
 
-      if (iter == p.maxIterations) {
-        textureStore(o, vec2u(id.x, id.y), vec4f(0.0, 0.0, 0.0, 1.0));
+      if (iter == params.maxIterations) {
+        textureStore(outputTex, vec2u(id.x, id.y), vec4f(0.0, 0.0, 0.0, 1.0));
       } else {
-        const t = f32(iter) / f32(p.maxIterations);
-        const r = 1.0 - t;
-        const gVal = (t * 2.0) % 1.0;
-        const b = 0.5 + t * 0.5;
-        textureStore(o, vec2u(id.x, id.y), vec4f(r, gVal, b, 1.0));
+        let t = f32(iter) / f32(params.maxIterations);
+        let r = 1.0 - t;
+        let gVal = (t * 2.0) % 1.0;
+        let b = 0.5 + t * 0.5;
+        textureStore(outputTex, vec2u(id.x, id.y), vec4f(r, gVal, b, 1.0));
       }
-    })
-    .$uses({ WIDTH, HEIGHT, f32, vec2u, vec4f, textureStore })
-    .$uses({ layout });
+    `.$uses({ params: pBind, outputTex: oBind });
 }
 
 export async function initRenderer(canvas: HTMLCanvasElement): Promise<{

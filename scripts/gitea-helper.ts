@@ -72,26 +72,42 @@ if (!token) {
   Deno.exit(1);
 }
 
+const REQUEST_TIMEOUT = 10_000;
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${giteaUrl}/api/v1/repos/${repo}/${path}`, {
-    ...init,
-    headers: {
-      Authorization: `token ${token}`,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  try {
+    const response = await fetch(`${giteaUrl}/api/v1/repos/${repo}/${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        Authorization: `token ${token}`,
+        "Content-Type": "application/json",
+        ...init.headers,
+      },
+    });
 
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message =
-      body && typeof body === "object" && "message" in body
-        ? String(body.message)
-        : response.statusText;
-    throw new GiteaApiError(response.status, `Gitea API error (${response.status}): ${message}`);
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        body && typeof body === "object" && "message" in body
+          ? String(body.message)
+          : response.statusText;
+      throw new GiteaApiError(response.status, `Gitea API error (${response.status}): ${message}`);
+    }
+
+    return body as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(
+        `Request timed out after ${REQUEST_TIMEOUT}ms: ${giteaUrl}/api/v1/repos/${repo}/${path}`,
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return body as T;
 }
 
 async function paginatedRequest<T>(path: string, limit = 50): Promise<T[]> {
@@ -336,15 +352,30 @@ async function replyViaWebForm(prNumber: string, commentId: string, body: string
   form.set("reply", String(reviewId));
   form.set("single_review", "true");
 
-  const response = await fetch(`${giteaUrl}/${repo}/pulls/${prNumber}/files/reviews/comments`, {
-    method: "POST",
-    redirect: "manual",
-    headers: {
-      Cookie: webCookie,
-      Referer: `${giteaUrl}/${repo}/pulls/${prNumber}`,
-    },
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  let response: Response;
+  try {
+    response = await fetch(`${giteaUrl}/${repo}/pulls/${prNumber}/files/reviews/comments`, {
+      method: "POST",
+      redirect: "manual",
+      signal: controller.signal,
+      headers: {
+        Cookie: webCookie,
+        Referer: `${giteaUrl}/${repo}/pulls/${prNumber}`,
+      },
+      body: form,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(
+        `Request timed out after ${REQUEST_TIMEOUT}ms: ${giteaUrl}/${repo}/pulls/${prNumber}/files/reviews/comments`,
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (response.status !== 303 && response.status !== 302) {
     const text = await response.text().catch(() => "");

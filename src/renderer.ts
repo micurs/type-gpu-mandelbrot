@@ -1,44 +1,26 @@
-import tgpu, { d, std, type TgpuBindGroupLayout } from "typegpu";
+import tgpu, { d } from "typegpu";
+import { ViewParamsType, createRendererShader } from "./shader.ts";
 
 const WIDTH = 1000;
 const HEIGHT = 800;
 
-export type MandelbrotParams = {
+export type ViewParams = {
   centerX: number;
   centerY: number;
   scale: number;
   maxIterations: number;
 };
 
-export const DEFAULT_PARAMS: MandelbrotParams = {
+export const DEFAULT_VIEW: ViewParams = {
   centerX: -0.5,
   centerY: 0,
   scale: 0.004,
-  maxIterations: 256,
+  maxIterations: 512,
 };
 
-function createRendererShader(layout: TgpuBindGroupLayout) {
-  return tgpu
-    .computeFn({
-      workgroupSize: [8, 8],
-      in: { id: d.builtin.globalInvocationId },
-    })(({ id }) => {
-      "use gpu";
-
-      if (id.x >= 1000 || id.y >= 800) {
-        return;
-      }
-
-      // @ts-expect-error - resolved to WGSL texture handle inside 'use gpu'
-      std.textureStore(layout.$.outputTex, d.vec2u(id.x, id.y), d.vec4f(1.0, 0.0, 0.0, 1.0));
-    })
-    .$uses({ layout });
-}
-
-export async function initRenderer(canvas: HTMLCanvasElement): Promise<{
-  render: () => Promise<void>;
-  destroy: () => void;
-}> {
+export async function initRenderer(
+  canvas: HTMLCanvasElement,
+): Promise<{ render: (params: ViewParams) => Promise<void>; destroy: () => void }> {
   if (!navigator.gpu) {
     throw new Error("WebGPU is not supported in this browser.");
   }
@@ -60,6 +42,13 @@ export async function initRenderer(canvas: HTMLCanvasElement): Promise<{
     usage: GPUTextureUsage.COPY_DST,
   });
 
+  const paramsBuffer = root.createUniform(ViewParamsType, {
+    centerX: DEFAULT_VIEW.centerX,
+    centerY: DEFAULT_VIEW.centerY,
+    scale: DEFAULT_VIEW.scale,
+    maxIterations: DEFAULT_VIEW.maxIterations,
+  });
+
   const offscreenTexture = root
     .createTexture({
       size: [WIDTH, HEIGHT],
@@ -70,17 +59,26 @@ export async function initRenderer(canvas: HTMLCanvasElement): Promise<{
   const storageView = offscreenTexture.createView(d.textureStorage2d("rgba8unorm", "write-only"));
 
   const layout = tgpu.bindGroupLayout({
+    params: { uniform: ViewParamsType },
     outputTex: { storageTexture: d.textureStorage2d("rgba8unorm", "write-only") },
   });
 
   const bindGroup = root.createBindGroup(layout, {
+    params: paramsBuffer.buffer,
     outputTex: storageView,
   });
 
-  const computeShader = createRendererShader(layout);
+  const computeShader = createRendererShader(layout, WIDTH, HEIGHT);
   const computePipeline = root.createComputePipeline({ compute: computeShader });
 
-  async function render() {
+  async function render(params: ViewParams) {
+    paramsBuffer.write({
+      centerX: params.centerX,
+      centerY: params.centerY,
+      scale: params.scale,
+      maxIterations: params.maxIterations,
+    });
+
     const commandEncoder = root.device.createCommandEncoder();
     const canvasTexture = ctx!.getCurrentTexture();
 

@@ -1,5 +1,5 @@
 import "./style.css";
-import { initRenderer } from "./renderer.ts";
+import { initRenderer, DEFAULT_VIEW } from "./renderer.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -14,7 +14,7 @@ const errorDiv = document.querySelector<HTMLDivElement>("#error")!;
 
 void initRenderer(canvas).then(
   ({ render }) => {
-    void render();
+    void render(DEFAULT_VIEW);
   },
   (reason: unknown) => {
     const message = reason instanceof Error ? reason.message : String(reason);

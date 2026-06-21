@@ -116,6 +116,7 @@ canvas#mandelbrot {
   border: 1px solid var(--border);
   background: black;
   margin: 0 auto;
+  border-radius: 43px;
 }
 
 #error {
@@ -157,22 +158,26 @@ canvas#mandelbrot {
 
 .info-item {
   white-space: nowrap;
+  display: block;
+  text-align: left;
 }
 
 #controls {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin: 12px auto;
   max-width: fit-content;
+  gap: 4rem;
 }
 
 #iter-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 1rem;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 22px;
   color: var(--text);
 }
 

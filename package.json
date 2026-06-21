@@ -1,6 +1,6 @@
 {
   "name": "type-gpu-mandelbrot",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@types/node": "^26.0.0",
     "@webgpu/types": "^0.1.70",
+    "jsdom": "^26.0.0",
     "typescript": "~6.0.2",
     "unplugin-typegpu": "^0.11.5",
     "vite": "catalog:",
@@ -29,6 +30,11 @@
       "name": "pnpm",
       "version": "11.8.0",
       "onFail": "download"
+    }
+  },
+  "pnpm": {
+    "overrides": {
+      "nanoid": "3.3.13"
     }
   }
 }

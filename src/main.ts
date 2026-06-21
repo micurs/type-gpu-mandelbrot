@@ -68,21 +68,20 @@ async function renderView(view: ViewParams) {
 
 let render: ((params: ViewParams) => Promise<void>) | null = null;
 let animFrameId: number | null = null;
-let animCancelled = false;
+let animTicket = 0;
 
 function animateToCenter(targetCx: number, targetCy: number) {
   if (animFrameId !== null) {
     cancelAnimationFrame(animFrameId);
   }
-  animCancelled = true;
+  const ticket = ++animTicket;
 
   const startView: ViewParams = { ...currentView };
   const startTime = performance.now();
   const duration = 500;
-  animCancelled = false;
 
   async function frame(now: number) {
-    if (animCancelled) return;
+    if (ticket !== animTicket) return;
 
     const t = Math.min((now - startTime) / duration, 1);
     const eased = 1 - (1 - t) * (1 - t) * (1 - t);
@@ -95,7 +94,7 @@ function animateToCenter(targetCx: number, targetCy: number) {
 
     await renderView(currentView);
 
-    if (animCancelled) return;
+    if (ticket !== animTicket) return;
 
     if (t < 1) {
       animFrameId = requestAnimationFrame(frame);
@@ -135,7 +134,7 @@ canvas.addEventListener("wheel", (event) => {
     cancelAnimationFrame(animFrameId);
     animFrameId = null;
   }
-  animCancelled = true;
+  animTicket++;
   currentView = computeZoomView(
     currentView,
     currentView.centerX,

@@ -24,7 +24,9 @@ export function computeZoomView(
   const rawScale = zoomIn ? view.scale * 0.9 : view.scale / 0.9;
   const scale = zoomIn ? Math.max(rawScale, MIN_SCALE) : rawScale;
   const maxIterations = zoomIn
-    ? Math.round(view.maxIterations * 1.02)
+    ? rawScale >= MIN_SCALE
+      ? Math.round(view.maxIterations * 1.02)
+      : view.maxIterations
     : Math.round(view.maxIterations / 1.02);
   return { ...view, centerX: clickCx, centerY: clickCy, scale, maxIterations };
 }

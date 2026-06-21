@@ -33,7 +33,7 @@ export function createRendererShader(layout: TgpuBindGroupLayout, w: number, h: 
       for (; iter < layout.$.params.maxIterations; iter++) {
         x2 = zx * zx;
         y2 = zy * zy;
-        if (x2 + y2 > d.f32(65536.0)) {
+        if (x2 + y2 > d.f32(256.0)) {
           break;
         }
         zy = d.f32(2.0) * zx * zy + cy;

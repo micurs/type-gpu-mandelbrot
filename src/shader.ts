@@ -26,7 +26,7 @@ export function createRendererShader(layout: TgpuBindGroupLayout, w: number, h: 
 
       let zx = d.f32(0.0);
       let zy = d.f32(0.0);
-      let iter = 0;
+      let iter = d.u32(0);
 
       for (; iter < layout.$.params.maxIterations; iter++) {
         const x2 = zx * zx;

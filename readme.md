@@ -28,8 +28,8 @@ Open the URL printed by the dev server (default `http://localhost:5173`).
 ## Navigation
 
 - **Left-click**: recenter the view on the clicked point.
-- **Scroll up**: zoom in by 10%.
-- **Scroll down**: zoom out by 10%.
+- **Scroll up**: zoom in by 2%.
+- **Scroll down**: zoom out by 2%.
 
 ## Scripts
 

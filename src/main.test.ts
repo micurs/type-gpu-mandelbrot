@@ -26,20 +26,20 @@ describe("pixelToComplex", () => {
 });
 
 describe("computeZoomView", () => {
-  it("zooms in by 10% on wheel zoom-in", () => {
+  it("zooms in by 2% on wheel zoom-in", () => {
     const result = computeZoomView(BASE_VIEW, 0.3, 0.2, true);
     expect(result.centerX).toBe(0.3);
     expect(result.centerY).toBe(0.2);
-    expect(result.scale).toBeCloseTo(0.004 * 0.9);
-    expect(result.maxIterations).toBe(Math.round(256 * 1.02));
+    expect(result.scale).toBeCloseTo(0.004 * 0.98);
+    expect(result.maxIterations).toBe(Math.round(256 * 1.005));
   });
 
-  it("zooms out by 10% on wheel zoom-out", () => {
+  it("zooms out by 2% on wheel zoom-out", () => {
     const result = computeZoomView(BASE_VIEW, 0.3, 0.2, false);
     expect(result.centerX).toBe(0.3);
     expect(result.centerY).toBe(0.2);
-    expect(result.scale).toBeCloseTo(0.004 / 0.9);
-    expect(result.maxIterations).toBe(Math.round(256 / 1.02));
+    expect(result.scale).toBeCloseTo(0.004 / 0.98);
+    expect(result.maxIterations).toBe(Math.round(256 / 1.005));
   });
 
   it("increases maxIterations on zoom-in and decreases on zoom-out", () => {
@@ -50,13 +50,13 @@ describe("computeZoomView", () => {
   });
 
   it("clamps scale to MIN_SCALE on zoom-in", () => {
-    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 4e-7 };
+    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 1.9e-7 };
     const result = computeZoomView(nearLimit, 0, 0, true);
     expect(result.scale).toBe(MIN_SCALE);
   });
 
   it("does not increase maxIterations when scale is clamped at MIN_SCALE", () => {
-    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 4e-7, maxIterations: 256 };
+    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 1.9e-7, maxIterations: 256 };
     const result = computeZoomView(nearLimit, 0, 0, true);
     expect(result.scale).toBe(MIN_SCALE);
     expect(result.maxIterations).toBe(256);

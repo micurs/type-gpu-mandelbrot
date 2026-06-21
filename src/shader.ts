@@ -39,8 +39,11 @@ export function createRendererShader(layout: TgpuBindGroupLayout, w: number, h: 
       }
 
       const t = d.f32(iter) / d.f32(layout.$.params.maxIterations);
+      const r = d.f32(0.5) + d.f32(0.5) * std.cos(d.f32(6.28318) * (t * d.f32(4.0) + d.f32(0.0)));
+      const g = d.f32(0.5) + d.f32(0.5) * std.cos(d.f32(6.28318) * (t * d.f32(4.0) + d.f32(0.33)));
+      const b = d.f32(0.5) + d.f32(0.5) * std.cos(d.f32(6.28318) * (t * d.f32(4.0) + d.f32(0.67)));
       const color = std.select(
-        d.vec4f(t, t * 0.5, 1.0 - t, 1.0),
+        d.vec4f(r, g, b, 1.0),
         d.vec4f(0.0, 0.0, 0.0, 1.0),
         iter === layout.$.params.maxIterations,
       );

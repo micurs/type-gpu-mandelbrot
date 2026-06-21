@@ -15,7 +15,7 @@ export const DEFAULT_VIEW: ViewParams = {
   centerX: -0.5,
   centerY: 0,
   scale: 0.004,
-  maxIterations: 512,
+  maxIterations: 256,
 };
 
 export async function initRenderer(
@@ -72,28 +72,33 @@ export async function initRenderer(
   const computePipeline = root.createComputePipeline({ compute: computeShader });
 
   async function render(params: ViewParams) {
-    paramsBuffer.write({
-      centerX: params.centerX,
-      centerY: params.centerY,
-      scale: params.scale,
-      maxIterations: params.maxIterations,
-    });
+    try {
+      paramsBuffer.write({
+        centerX: params.centerX,
+        centerY: params.centerY,
+        scale: params.scale,
+        maxIterations: params.maxIterations,
+      });
 
-    const commandEncoder = root.device.createCommandEncoder();
-    const canvasTexture = ctx!.getCurrentTexture();
+      const commandEncoder = root.device.createCommandEncoder();
+      const canvasTexture = ctx!.getCurrentTexture();
 
-    computePipeline
-      .with(commandEncoder)
-      .with(bindGroup)
-      .dispatchWorkgroups(Math.ceil(WIDTH / 8), Math.ceil(HEIGHT / 8));
+      computePipeline
+        .with(commandEncoder)
+        .with(bindGroup)
+        .dispatchWorkgroups(Math.ceil(WIDTH / 8), Math.ceil(HEIGHT / 8));
 
-    commandEncoder.copyTextureToTexture(
-      { texture: root.unwrap(offscreenTexture) },
-      { texture: canvasTexture },
-      [WIDTH, HEIGHT],
-    );
+      commandEncoder.copyTextureToTexture(
+        { texture: root.unwrap(offscreenTexture) },
+        { texture: canvasTexture },
+        [WIDTH, HEIGHT],
+      );
 
-    root.device.queue.submit([commandEncoder.finish()]);
+      root.device.queue.submit([commandEncoder.finish()]);
+    } catch (error) {
+      console.error("GPU render failed:", error);
+      throw error;
+    }
   }
 
   return {

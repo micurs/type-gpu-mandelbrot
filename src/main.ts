@@ -12,9 +12,13 @@ app.innerHTML = `
 const canvas = document.querySelector<HTMLCanvasElement>("#mandelbrot")!;
 const errorDiv = document.querySelector<HTMLDivElement>("#error")!;
 
-void initRenderer(canvas).then(
+initRenderer(canvas).then(
   ({ render }) => {
-    void render(DEFAULT_VIEW);
+    render(DEFAULT_VIEW).catch((reason: unknown) => {
+      const message = reason instanceof Error ? reason.message : String(reason);
+      errorDiv.textContent = message;
+      console.error("GPU render failed:", reason);
+    });
   },
   (reason: unknown) => {
     const message = reason instanceof Error ? reason.message : String(reason);

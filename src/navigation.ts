@@ -13,7 +13,7 @@ export function pixelToComplex(
   };
 }
 
-export const MIN_SCALE = 4.5e-7;
+export const MIN_SCALE = 3.0e-7;
 
 export function computeZoomView(
   view: ViewParams,
@@ -21,12 +21,12 @@ export function computeZoomView(
   clickCy: number,
   zoomIn: boolean,
 ): ViewParams {
-  const rawScale = zoomIn ? view.scale * 0.9 : view.scale / 0.9;
+  const rawScale = zoomIn ? view.scale * 0.98 : view.scale / 0.98;
   const scale = zoomIn ? Math.max(rawScale, MIN_SCALE) : rawScale;
   const maxIterations = zoomIn
     ? rawScale >= MIN_SCALE
-      ? Math.round(view.maxIterations * 1.02)
+      ? Math.round(view.maxIterations * 1.005)
       : view.maxIterations
-    : Math.round(view.maxIterations / 1.02);
+    : Math.round(view.maxIterations / 1.005);
   return { ...view, centerX: clickCx, centerY: clickCy, scale, maxIterations };
 }

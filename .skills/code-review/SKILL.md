@@ -1,6 +1,6 @@
 ---
-name: ts-geopro-thermonuclear-code-review
-description: Use when reviewing ts-geopro code changes, pull requests, or diffs with an especially strict maintainability lens, including abstraction quality, file growth, spaghetti-condition growth, package boundaries, geometry library design, Solid canvas changes, and test coverage.
+name: code-review
+description: Use when reviewing changes, pull requests, or diffs with an especially strict maintainability lens, including abstraction quality, file growth, spaghetti-condition growth, package boundaries, and test coverage.
 ---
 
 # Thermo-Nuclear Code Quality Review
@@ -71,16 +71,6 @@ Apply the baseline prompt above, plus these explicit review rules:
    - If related updates can leave state half-applied, push for a more atomic structure.
    - Do not over-index on micro-optimizations, but do flag avoidable orchestration complexity that makes the implementation more brittle.
 
-8. **Apply ts-geopro's local architecture rules.**
-   - Core geometry entities should stay immutable; transformations should create new instances rather than mutate existing ones.
-   - Prefer existing helpers such as `map()`, `compose()`, `add()`, `absolute()`, and `relative()` over bespoke math or transform plumbing.
-   - Keep package boundaries clean: core geometry logic belongs in `packages/ts-geopro`, while SolidJS canvas concerns belong in `packages/ts-geosolid-canvas`.
-   - Keep exports centralized through the package's established export surface instead of adding side-door imports.
-   - For SolidJS canvas changes, look for idiomatic component composition, context usage, CSS Modules, viewport utilities, and RoughJS integration instead of ad-hoc DOM/canvas state.
-   - Do not normalize changes to generated `dist/` outputs unless the task explicitly requires it.
-   - Behavior changes need focused tests in the relevant package or demo surface.
-   - Control flow bodies must always use curly braces, even for single-line `if`, `else`, `for`, `while`, and `do` statements.
-
 ## Primary Review Questions
 
 For every meaningful change, ask:
@@ -98,7 +88,6 @@ For every meaningful change, ask:
 - Did the diff introduce casts, optionality, or ad-hoc object shapes that obscure the real invariant?
 - Is this logic living in the canonical layer, or did the diff leak details across a boundary?
 - Is this orchestration more sequential or less atomic than it needs to be?
-- Does the change respect ts-geopro immutability, package boundaries, established helpers, exports, and test expectations?
 
 ## What to Flag Aggressively
 

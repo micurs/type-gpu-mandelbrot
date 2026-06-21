@@ -1,8 +1,8 @@
 import tgpu, { d } from "typegpu";
 import { ViewParamsType, createRendererShader } from "./shader.ts";
 
-const WIDTH = 1000;
-const HEIGHT = 800;
+export const WIDTH = 1000;
+export const HEIGHT = 800;
 
 export type ViewParams = {
   centerX: number;

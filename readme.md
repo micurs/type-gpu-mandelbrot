@@ -25,6 +25,12 @@ Open the URL printed by the dev server (default `http://localhost:5173`).
 3. Colors are written to the offscreen texture based on escape iteration count.
 4. The offscreen texture is copied to the canvas for display.
 
+## Navigation
+
+- **Left-click**: recenter the view on the clicked point.
+- **Scroll up**: zoom in by 10%.
+- **Scroll down**: zoom out by 10%.
+
 ## Scripts
 
 | Command      | Description                         |

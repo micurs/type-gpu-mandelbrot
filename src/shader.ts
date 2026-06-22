@@ -2,14 +2,29 @@
 import tgpu, { d, std } from "typegpu";
 import type { TgpuBindGroupLayout } from "typegpu";
 
+/**
+ * View parameters passed as a uniform to every GPU compute shader.
+ * Centre coordinates and scale are split into high/low f32 pairs to provide
+ * ~48-bit precision for deep-zoom input coordinates.
+ */
 export const ViewParamsType = d.struct({
   centerXHigh: d.f32,
-  centerXLow: d.f32,
   centerYHigh: d.f32,
+  centerXLow: d.f32,
   centerYLow: d.f32,
   scaleHigh: d.f32,
   scaleLow: d.f32,
   maxIterations: d.u32,
+  referenceOrbitLen: d.u32,
+});
+
+/**
+ * A single point on the reference orbit, stored as double-single (vec2<f32>)
+ * pairs to provide ~48-bit precision inside the perturbation shader.
+ */
+export const OrbitPointType = d.struct({
+  re: d.vec2f,
+  im: d.vec2f,
 });
 
 // Double-single arithmetic helpers (vec2<f32> representing high + low)
@@ -213,6 +228,140 @@ export function createRendererShader(layout: TgpuBindGroupLayout, w: number, h: 
         }
         zy = ds_add(ds_scale2(ds_mul(zx, zy)), cy);
         zx = ds_add(ds_sub(x2, y2), cx);
+      }
+
+      if (iter === layout.$.params.maxIterations) {
+        std.textureStore(layout.$.outputTex, d.vec2u(id.x, id.y), d.vec4f(0.0, 0.0, 0.0, 1.0));
+        return;
+      }
+
+      const color = normalizedIterationColor(x2, y2, iter);
+      std.textureStore(layout.$.outputTex, d.vec2u(id.x, id.y), color);
+    })
+    .$uses({ w, h, layout });
+}
+
+// ── Double-single complex arithmetic ────────────────────────────────────
+
+/**
+ * Real component of double-single complex multiplication.
+ * `(a_re + a_im·i) * (b_re + b_im·i) = (a_re·b_re − a_im·b_im) + …·i`
+ * Each term is a full DS × DS product via Dekker, so the result mantissa
+ * stays accurate to ~48 bits.
+ */
+const ds_cmul_re = (a_re, a_im, b_re, b_im) => {
+  "use gpu";
+  return ds_sub(ds_mul(a_re, b_re), ds_mul(a_im, b_im));
+};
+
+/**
+ * Imaginary component of double-single complex multiplication.
+ * `(a_re + a_im·i) * (b_re + b_im·i) = … + (a_re·b_im + a_im·b_re)·i`
+ */
+const ds_cmul_im = (a_re, a_im, b_re, b_im) => {
+  "use gpu";
+  return ds_add(ds_mul(a_re, b_im), ds_mul(a_im, b_re));
+};
+
+// ── Perturbation kernel ─────────────────────────────────────────────────
+
+/**
+ * Build a perturbation-theory Mandelbrot compute shader.
+ *
+ * Instead of iterating every pixel from z₀ = 0 (the naive approach), the
+ * shader reads a pre-computed reference orbit Z[n] from a storage buffer.
+ * Each pixel iterates only the small delta δz:
+ *
+ *   δz₀   = 0
+ *   δzₙ₊₁ = 2·Zₙ·δzₙ + δzₙ² + δc
+ *
+ * where δc = cₚᵢₓₑₗ − c_ref.  Because δz stays small (≪ |Z|) for
+ * deep-zoom views the iteration remains accurate long after naive f32
+ * arithmetic would have been destroyed by catastrophic cancellation.
+ *
+ * The real pixel value zₙ = Zₙ + δzₙ is reconstructed on the fly for the
+ * escape check and the final smooth colour.
+ *
+ * @param layout  Bind-group layout providing `params` (uniform),
+ *                `outputTex` (write-only storage texture), and
+ *                `referenceOrbit` (read-only storage buffer).
+ * @param w       Texture width (dispatch is clipped here).
+ * @param h       Texture height (dispatch is clipped here).
+ * @returns A TypeGPU compute function wired to the given layout.
+ */
+export function createPerturbationShader(layout: TgpuBindGroupLayout, w: number, h: number) {
+  return tgpu
+    .computeFn({
+      workgroupSize: [8, 8],
+      in: { id: d.builtin.globalInvocationId },
+    })(({ id }) => {
+      "use gpu";
+
+      if (id.x >= w || id.y >= h) {
+        return;
+      }
+
+      const center_x = d.vec2f(layout.$.params.centerXHigh, layout.$.params.centerXLow);
+      const center_y = d.vec2f(layout.$.params.centerYHigh, layout.$.params.centerYLow);
+      const scale = d.vec2f(layout.$.params.scaleHigh, layout.$.params.scaleLow);
+      const shift_x = d.f32(id.x) - d.f32(w) / d.f32(2.0);
+      const shift_y = d.f32(id.y) - d.f32(h) / d.f32(2.0);
+
+      // δc = cₚᵢₓₑₗ − c_ref = shift × scale
+      const delta_cx = ds_mul(ds_lift(shift_x), scale);
+      const delta_cy = ds_mul(ds_lift(shift_y), scale);
+      const cx_pixel = ds_add(center_x, delta_cx);
+      const cy_pixel = ds_add(center_y, delta_cy);
+
+      let delta_re = ds_lift(0.0);
+      let delta_im = ds_lift(0.0);
+      let iter = d.u32(0);
+      let x2 = ds_lift(0.0);
+      let y2 = ds_lift(0.0);
+
+      const orbit_limit = std.min(layout.$.params.maxIterations, layout.$.params.referenceOrbitLen);
+
+      // Running z for naive fallback. During perturbation, we track the
+      // full z = Z[n] + δz[n] so we can seamlessly continue naively once the
+      // reference orbit runs out.
+      let z_re = ds_lift(0.0);
+      let z_im = ds_lift(0.0);
+
+      for (; iter < layout.$.params.maxIterations; iter++) {
+        if (iter < orbit_limit) {
+          // Perturbation: z = Z[n] + δz[n]
+          const ref_re = layout.$.referenceOrbit[iter].re;
+          const ref_im = layout.$.referenceOrbit[iter].im;
+          z_re = d.vec2f(ds_add(ref_re, delta_re));
+          z_im = d.vec2f(ds_add(ref_im, delta_im));
+        }
+
+        // escape check with full high-precision |z|
+        x2 = ds_mul(z_re, z_re);
+        y2 = ds_mul(z_im, z_im);
+        const magSq = ds_add(x2, y2);
+        if (magSq.x + magSq.y > d.f32(256.0)) {
+          break;
+        }
+
+        // Compute next z: z_next = z² + c_pixel
+        const next_im = ds_add(ds_scale2(ds_mul(z_re, z_im)), cy_pixel);
+        const next_re = ds_add(ds_sub(x2, y2), cx_pixel);
+
+        if (iter < orbit_limit) {
+          // Perturbation: also update δz
+          const ref_re = layout.$.referenceOrbit[iter].re;
+          const ref_im = layout.$.referenceOrbit[iter].im;
+          const z_delta_re = ds_cmul_re(ref_re, ref_im, delta_re, delta_im);
+          const z_delta_im = ds_cmul_im(ref_re, ref_im, delta_re, delta_im);
+          const delta_sq_re = ds_cmul_re(delta_re, delta_im, delta_re, delta_im);
+          const delta_sq_im = ds_cmul_im(delta_re, delta_im, delta_re, delta_im);
+          delta_re = d.vec2f(ds_add(ds_scale2(z_delta_re), ds_add(delta_sq_re, delta_cx)));
+          delta_im = d.vec2f(ds_add(ds_scale2(z_delta_im), ds_add(delta_sq_im, delta_cy)));
+        }
+
+        z_re = d.vec2f(next_re);
+        z_im = d.vec2f(next_im);
       }
 
       if (iter === layout.$.params.maxIterations) {

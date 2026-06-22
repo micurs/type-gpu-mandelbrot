@@ -50,13 +50,13 @@ describe("computeZoomView", () => {
   });
 
   it("clamps scale to MIN_SCALE on zoom-in", () => {
-    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 1.9e-7 };
+    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 4.9e-10 };
     const result = computeZoomView(nearLimit, 0, 0, true);
     expect(result.scale).toBe(MIN_SCALE);
   });
 
   it("does not increase maxIterations when scale is clamped at MIN_SCALE", () => {
-    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 1.9e-7, maxIterations: 256 };
+    const nearLimit: ViewParams = { ...BASE_VIEW, scale: 4.9e-10, maxIterations: 256 };
     const result = computeZoomView(nearLimit, 0, 0, true);
     expect(result.scale).toBe(MIN_SCALE);
     expect(result.maxIterations).toBe(256);

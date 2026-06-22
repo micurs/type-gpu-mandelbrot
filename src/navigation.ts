@@ -13,7 +13,8 @@ export function pixelToComplex(
   };
 }
 
-export const MIN_SCALE = 2.0e-9;
+export const MIN_SCALE = 5.0e-10;
+export const MAX_ITERATIONS = 10000;
 
 export function computeZoomView(
   view: ViewParams,
@@ -25,7 +26,7 @@ export function computeZoomView(
   const scale = zoomIn ? Math.max(rawScale, MIN_SCALE) : rawScale;
   const maxIterations = zoomIn
     ? rawScale >= MIN_SCALE
-      ? Math.round(view.maxIterations * 1.005)
+      ? Math.min(Math.round(view.maxIterations * 1.005), MAX_ITERATIONS)
       : view.maxIterations
     : Math.round(view.maxIterations / 1.005);
   return { ...view, centerX: clickCx, centerY: clickCy, scale, maxIterations };

@@ -1,5 +1,12 @@
 import tgpu, { d } from "typegpu";
-import { ViewParamsType, createRendererShader } from "./shader.ts";
+import {
+  ViewParamsType,
+  OrbitPointType,
+  createRendererShader,
+  createPerturbationShader,
+} from "./shader.ts";
+import { makeReferenceOrbit } from "./referenceOrbit.ts";
+import type { OrbitPoint } from "./referenceOrbit.ts";
 
 export const WIDTH = 1000;
 export const HEIGHT = 800;
@@ -18,13 +25,16 @@ export const DEFAULT_VIEW: ViewParams = {
   maxIterations: 256,
 };
 
+const PERTURB_THRESHOLD = 1e-7;
+const ORBIT_BUF_CAPACITY = 65536;
+
 function splitF64ToF32Pair(value: number): { high: number; low: number } {
   const high = Math.fround(value);
   const low = Math.fround(value - high);
   return { high, low };
 }
 
-function buildUniformParams(view: ViewParams) {
+function buildUniformParams(view: ViewParams, referenceOrbitLen = 0) {
   const cx = splitF64ToF32Pair(view.centerX);
   const cy = splitF64ToF32Pair(view.centerY);
   const sc = splitF64ToF32Pair(view.scale);
@@ -36,7 +46,19 @@ function buildUniformParams(view: ViewParams) {
     scaleHigh: sc.high,
     scaleLow: sc.low,
     maxIterations: view.maxIterations,
+    referenceOrbitLen,
   };
+}
+
+function orbitPointsToBufferData(orbit: OrbitPoint[], maxIterations: number): Float32Array {
+  const data = new Float32Array(maxIterations * 4);
+  for (let i = 0; i < orbit.length; i++) {
+    data[i * 4 + 0] = orbit[i].re.high;
+    data[i * 4 + 1] = orbit[i].re.low;
+    data[i * 4 + 2] = orbit[i].im.high;
+    data[i * 4 + 3] = orbit[i].im.low;
+  }
+  return data;
 }
 
 export async function initRenderer(
@@ -74,30 +96,77 @@ export async function initRenderer(
 
   const storageView = offscreenTexture.createView(d.textureStorage2d("rgba8unorm", "write-only"));
 
-  const layout = tgpu.bindGroupLayout({
+  // ── Naive pipeline ────────────────────────────────────────────────────
+
+  const naiveLayout = tgpu.bindGroupLayout({
     params: { uniform: ViewParamsType },
     outputTex: { storageTexture: d.textureStorage2d("rgba8unorm", "write-only") },
   });
 
-  const bindGroup = root.createBindGroup(layout, {
+  const naiveBindGroup = root.createBindGroup(naiveLayout, {
     params: paramsBuffer.buffer,
     outputTex: storageView,
   });
 
-  const computeShader = createRendererShader(layout, WIDTH, HEIGHT);
-  const computePipeline = root.createComputePipeline({ compute: computeShader });
+  const naiveShader = createRendererShader(naiveLayout, WIDTH, HEIGHT);
+  const naivePipeline = root.createComputePipeline({ compute: naiveShader });
+
+  // ── Perturbation pipeline ─────────────────────────────────────────────
+
+  const perturbLayout = tgpu.bindGroupLayout({
+    params: { uniform: ViewParamsType },
+    outputTex: { storageTexture: d.textureStorage2d("rgba8unorm", "write-only") },
+    referenceOrbit: { storage: d.arrayOf(OrbitPointType, 0), access: "readonly" },
+  });
+
+  const orbitBufferGpu = root.device.createBuffer({
+    size: ORBIT_BUF_CAPACITY * 16,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+
+  const perturbShader = createPerturbationShader(perturbLayout, WIDTH, HEIGHT);
+  const perturbPipeline = root.createComputePipeline({ compute: perturbShader });
+
+  let perturbBindGroup = root.createBindGroup(perturbLayout, {
+    params: paramsBuffer.buffer,
+    outputTex: storageView,
+    referenceOrbit: orbitBufferGpu,
+  });
 
   async function render(params: ViewParams) {
     try {
-      paramsBuffer.write(buildUniformParams(params));
+      let orbitLen = 0;
+
+      if (params.scale < PERTURB_THRESHOLD) {
+        const orbit = makeReferenceOrbit(params.centerX, params.centerY, params.maxIterations);
+        const bufferData = orbitPointsToBufferData(orbit, params.maxIterations);
+        root.device.queue.writeBuffer(orbitBufferGpu, 0, bufferData);
+        orbitLen = orbit.length;
+      }
+
+      paramsBuffer.write(buildUniformParams(params, orbitLen));
 
       const commandEncoder = root.device.createCommandEncoder();
       const canvasTexture = ctx!.getCurrentTexture();
 
-      computePipeline
-        .with(commandEncoder)
-        .with(bindGroup)
-        .dispatchWorkgroups(Math.ceil(WIDTH / 8), Math.ceil(HEIGHT / 8));
+      if (params.scale < PERTURB_THRESHOLD) {
+        const orbit = makeReferenceOrbit(params.centerX, params.centerY, params.maxIterations);
+        const bufferData = orbitPointsToBufferData(orbit, params.maxIterations);
+        root.device.queue.writeBuffer(orbitBufferGpu, 0, bufferData);
+        console.log(
+          `[perturb] scale=${params.scale.toExponential(3)} refOrbit=${orbit.length}/${params.maxIterations}`,
+        );
+
+        perturbPipeline
+          .with(commandEncoder)
+          .with(perturbBindGroup)
+          .dispatchWorkgroups(Math.ceil(WIDTH / 8), Math.ceil(HEIGHT / 8));
+      } else {
+        naivePipeline
+          .with(commandEncoder)
+          .with(naiveBindGroup)
+          .dispatchWorkgroups(Math.ceil(WIDTH / 8), Math.ceil(HEIGHT / 8));
+      }
 
       commandEncoder.copyTextureToTexture(
         { texture: root.unwrap(offscreenTexture) },

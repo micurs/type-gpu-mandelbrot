@@ -18,6 +18,27 @@ export const DEFAULT_VIEW: ViewParams = {
   maxIterations: 256,
 };
 
+function splitF64ToF32Pair(value: number): { high: number; low: number } {
+  const high = Math.fround(value);
+  const low = Math.fround(value - high);
+  return { high, low };
+}
+
+function buildUniformParams(view: ViewParams) {
+  const cx = splitF64ToF32Pair(view.centerX);
+  const cy = splitF64ToF32Pair(view.centerY);
+  const sc = splitF64ToF32Pair(view.scale);
+  return {
+    centerXHigh: cx.high,
+    centerXLow: cx.low,
+    centerYHigh: cy.high,
+    centerYLow: cy.low,
+    scaleHigh: sc.high,
+    scaleLow: sc.low,
+    maxIterations: view.maxIterations,
+  };
+}
+
 export async function initRenderer(
   canvas: HTMLCanvasElement,
 ): Promise<{ render: (params: ViewParams) => Promise<void>; destroy: () => void }> {
@@ -42,12 +63,7 @@ export async function initRenderer(
     usage: GPUTextureUsage.COPY_DST,
   });
 
-  const paramsBuffer = root.createUniform(ViewParamsType, {
-    centerX: DEFAULT_VIEW.centerX,
-    centerY: DEFAULT_VIEW.centerY,
-    scale: DEFAULT_VIEW.scale,
-    maxIterations: DEFAULT_VIEW.maxIterations,
-  });
+  const paramsBuffer = root.createUniform(ViewParamsType, buildUniformParams(DEFAULT_VIEW));
 
   const offscreenTexture = root
     .createTexture({
@@ -73,12 +89,7 @@ export async function initRenderer(
 
   async function render(params: ViewParams) {
     try {
-      paramsBuffer.write({
-        centerX: params.centerX,
-        centerY: params.centerY,
-        scale: params.scale,
-        maxIterations: params.maxIterations,
-      });
+      paramsBuffer.write(buildUniformParams(params));
 
       const commandEncoder = root.device.createCommandEncoder();
       const canvasTexture = ctx!.getCurrentTexture();

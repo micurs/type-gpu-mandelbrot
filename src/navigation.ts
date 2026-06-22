@@ -13,7 +13,7 @@ export function pixelToComplex(
   };
 }
 
-export const MIN_SCALE = 2.0e-8;
+export const MIN_SCALE = 2.0e-9;
 
 export function computeZoomView(
   view: ViewParams,

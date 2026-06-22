@@ -22,8 +22,20 @@ Open the URL printed by the dev server (default `http://localhost:5173`).
 2. A compute shader maps each canvas pixel to a complex-plane coordinate and
    iterates the Mandelbrot equation `z = z² + c` up to a configurable iteration
    limit.
-3. Colors are written to the offscreen texture based on escape iteration count.
-4. The offscreen texture is copied to the canvas for display.
+3. Internally, the shader uses **double-single** arithmetic (`vec2<f32>`
+   representing `high + low`) for extended numerical precision, implemented
+   via two-sum addition, error-free multiplication with `fma`, and
+   renormalization helpers.
+4. To preserve center-coordinate precision at deep zoom, the browser-side
+   `centerX`/`centerY` (JS `f64`) are split into high+low `f32` pairs via
+   `Math.fround` before being sent as uniforms; the shader reconstructs the
+   double-single center directly, retaining ~48 bits of mantissa.
+5. Colors are written to the offscreen texture based on escape iteration count.
+6. The offscreen texture is copied to the canvas for display.
+
+Browser-side controls and pixel output remain `f32`; the extended precision is
+confined to the uniform layout, iteration loop, and coordinate setup, improving
+stability at deeper zoom levels without claiming native IEEE 754 `f64` support.
 
 ## Navigation
 

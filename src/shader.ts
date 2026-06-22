@@ -152,6 +152,16 @@ const ds_scale2 = (a) => {
 };
 
 /**
+ * Approximate absolute value of a double-single number (manhattan norm of its
+ * components). Used in the perturbation unreliable check to compare the
+ * magnitude of δz against the reference orbit Z.
+ */
+const ds_abs_approx = (a) => {
+  "use gpu";
+  return std.abs(a.x) + std.abs(a.y);
+};
+
+/**
  * Compute the smooth-iteration escape color for a Mandelbrot pixel.
  *
  * Combines the integer iteration count with a fractional correction derived
@@ -313,22 +323,25 @@ export function createPerturbationShader(layout: TgpuBindGroupLayout, w: number,
       const cx_pixel = ds_add(center_x, delta_cx);
       const cy_pixel = ds_add(center_y, delta_cy);
 
+      const REBASE_RATIO = d.f32(0.01);
+
       let delta_re = ds_lift(0.0);
       let delta_im = ds_lift(0.0);
       let iter = d.u32(0);
       let x2 = ds_lift(0.0);
       let y2 = ds_lift(0.0);
+      let unreliable = false;
 
       const orbit_limit = std.min(layout.$.params.maxIterations, layout.$.params.referenceOrbitLen);
 
       // Running z for naive fallback. During perturbation, we track the
       // full z = Z[n] + δz[n] so we can seamlessly continue naively once the
-      // reference orbit runs out.
+      // reference orbit runs out or the delta becomes unreliable.
       let z_re = ds_lift(0.0);
       let z_im = ds_lift(0.0);
 
       for (; iter < layout.$.params.maxIterations; iter++) {
-        if (iter < orbit_limit) {
+        if (iter < orbit_limit && !unreliable) {
           // Perturbation: z = Z[n] + δz[n]
           const ref_re = layout.$.referenceOrbit[iter].re;
           const ref_im = layout.$.referenceOrbit[iter].im;
@@ -348,10 +361,25 @@ export function createPerturbationShader(layout: TgpuBindGroupLayout, w: number,
         const next_im = ds_add(ds_scale2(ds_mul(z_re, z_im)), cy_pixel);
         const next_re = ds_add(ds_sub(x2, y2), cx_pixel);
 
-        if (iter < orbit_limit) {
+        if (iter < orbit_limit && !unreliable) {
           // Perturbation: also update δz
           const ref_re = layout.$.referenceOrbit[iter].re;
           const ref_im = layout.$.referenceOrbit[iter].im;
+
+          // Check if δz is still small relative to Z. When it exceeds the
+          // rebase ratio, perturbation is unreliable — fall back to naive
+          // iteration for remaining iterations.
+          if (iter > d.u32(8)) {
+            const ref_abs = ds_abs_approx(ref_re) + ds_abs_approx(ref_im);
+            const delta_abs = ds_abs_approx(delta_re) + ds_abs_approx(delta_im);
+            if (delta_abs > REBASE_RATIO * ref_abs) {
+              unreliable = true;
+              z_re = d.vec2f(next_re);
+              z_im = d.vec2f(next_im);
+              continue;
+            }
+          }
+
           const z_delta_re = ds_cmul_re(ref_re, ref_im, delta_re, delta_im);
           const z_delta_im = ds_cmul_im(ref_re, ref_im, delta_re, delta_im);
           const delta_sq_re = ds_cmul_re(delta_re, delta_im, delta_re, delta_im);

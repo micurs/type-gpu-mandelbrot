@@ -150,13 +150,6 @@ export async function initRenderer(
       const canvasTexture = ctx!.getCurrentTexture();
 
       if (params.scale < PERTURB_THRESHOLD) {
-        const orbit = makeReferenceOrbit(params.centerX, params.centerY, params.maxIterations);
-        const bufferData = orbitPointsToBufferData(orbit, params.maxIterations);
-        root.device.queue.writeBuffer(orbitBufferGpu, 0, bufferData);
-        console.log(
-          `[perturb] scale=${params.scale.toExponential(3)} refOrbit=${orbit.length}/${params.maxIterations}`,
-        );
-
         perturbPipeline
           .with(commandEncoder)
           .with(perturbBindGroup)

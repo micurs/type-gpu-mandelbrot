@@ -22,7 +22,7 @@ export const DEFAULT_VIEW: ViewParams = {
   centerX: -0.5,
   centerY: 0,
   scale: 0.004,
-  maxIterations: 256,
+  maxIterations: 1024,
 };
 
 const PERTURB_THRESHOLD = 1e-7;

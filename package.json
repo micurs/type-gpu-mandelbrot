@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vp dev",
     "build": "tsc && vp build",
+    "build:docs": "vp build --outDir docs --base ${BASE_URL:-/type-gpu-mandelbrot/}",
+    "preview:docs": "BASE_URL=/ pnpm build:docs && vp preview --outDir docs",
     "preview": "vp preview",
     "prepare": "vp config",
     "gitea-helper": "deno run --allow-env --allow-net --allow-read scripts/gitea-helper.ts",

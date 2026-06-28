@@ -43,5 +43,5 @@ jobs:
           git config user.name "Gitea Actions"
           git config user.email "actions@gitea.micurs.com"
           git add -f docs/
-          git commit -m "Update docs [skip ci]" || echo "No changes to commit"
+          git commit --no-verify -m "Update docs [skip ci]" || echo "No changes to commit"
           git push origin HEAD:main
